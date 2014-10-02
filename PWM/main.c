@@ -3,8 +3,10 @@
 #include <pwm.h>
 #include <pwm12.h>
 #include <p30F4012.h>
+#include <p30Fxxxx.h>
 #include <math.h>
 #include <dsp.h>
+#include <timer.h>
 
 #define FCY 20000000 // 20 MIPS this is the amount of processes per second
 #define FPWM 20000 // 20 kHz switching frequency
@@ -15,25 +17,41 @@
 #define _DES_FREQ 60 //target frequency
 #define _DELTA_PHASE (unsigned int)(_DES_FREQ * 65536 / FPWM)
 
+//_FOSC(FCKSM_CSECMD & OSCIOFNC_ON);
+//_FWDT(FWDTEN_OFF);
+//_FICD(ICS_PGD2 & JTAGEN_OFF);
+_FBORPOR(PBOR_OFF & MCLR_EN);
+_FGS( CODE_PROT_OFF);
+//_FOSCSEL()
+//_FPOR(PWMPIN_ON & HPOL_ON & LPOL_ON);
+
 void InitMCPWM(void){
-    TRISE = 0x0100; // ?PWM ?FLTA ????????????
-    PTPER = (FCY/FPWM - 1) >> 1; // ????????????
-    OVDCON = 0x0000; // ????PWM ???
-    DTCON1 = DEADTIME; // ?????~2 us@ 20 MIPS ??????1:1
-    PWMCON1 = 0x0077; // ??PWM ???????????
-    PDC1 = PTPER; /* ?A ???0 ???????50% ?????????????????0 ?*/
-    PDC2 = PTPER; // ?B ???0 ??
-    PDC3 = PTPER; // ?C ???0 ??
-    IFS2bits.PWMIF = 0; // ??PWM ????
-    IEC2bits.PWMIE = 1; // ??PWM ??
-    OVDCON = 0xFF00; // PWM ???PWM ??????
-    PTCONbits.PTMOD = 2; // ????PWM ??
-    return;
+
+        PTCONbits.PTEN = 0;
+        PTCONbits.PTCKPS=0;
+        PTCONbits.PTMOD=2;
+        PTMR=0;
+
+        PTPER = ((FCY/FPWM) >> 1) - 1;
+        SEVTCMP = 0;
+
+        PWMCON1 = 0x0077;
+        PWMCON2 = 0x0010;
+
+        DTCON1 = DEADTIME;
+        TRISE = 0x0100;
+        OVDCON = 0x3F00;
+
+        PDC1 = PTPER;
+        PDC2 = PTPER/2;
+        PDC3 = PTPER-(PDC1/2); 
+    
+        IFS2bits.PWMIF = 0;
+        IEC2bits.PWMIE = 1;
+        
+        return;
 }
 
-/*
- * 
- */
 int main() {
     unsigned int Phase, Delta_Phase;
     unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;
@@ -94,29 +112,30 @@ int main() {
 -4107,-3903,-3699,-3494,-3289,-3084,-2879,-2674,-2469,-2263,-2058,-1852,-1647,-1441,-1236,-1030,-824,-618,-412,-206
 };
 
-    
-    Phase = 0; // ??Phase ??
-    Delta_Phase = _DELTA_PHASE; // ?Phase ??????60Hz ?????
+    InitMCPWM();
+    Phase = 0; 
+    Delta_Phase = _DELTA_PHASE; 
+    PTCONbits.PTEN = 1;
    
-    Phase += Delta_Phase; // ?Delta_Phase ???Phase ???
+    Phase += Delta_Phase; 
 
-    Phase_Offset1 = _0_DEGREES; // ?????????????
-    Multiplier1 = sinetable[(Phase + Phase_Offset1) >> 10];// ??????
+    Phase_Offset1 = _0_DEGREES; 
+    Multiplier1 = sinetable[(Phase + Phase_Offset1) >> 10];
     Result1 = Multiplier1*PTPER;
     PDC1 = Result1 + PTPER;
 
-    Phase_Offset2 = _120_DEGREES; // ?????????????
-    Multiplier2 = sinetable[(Phase + Phase_Offset2) >> 10];// ?????
+    Phase_Offset2 = _120_DEGREES; 
+    Multiplier2 = sinetable[(Phase + Phase_Offset2) >> 10];
     Result2 = Multiplier2*PTPER;
     PDC2 = Result2 + PTPER;
 
-    Phase_Offset3 = _240_DEGREES; // ?????????????
-    Multiplier3 = sinetable[(Phase + Phase_Offset3) >> 10];// ?????
+    Phase_Offset3 = _240_DEGREES; 
+    Multiplier3 = sinetable[(Phase + Phase_Offset3) >> 10];
     Result3 = Multiplier3*PTPER;
     PDC3 = Result3 + PTPER;
 
-    PTCONbits.PTEN = 1;
-
+    while(1);
+    
     return 0;
 }
 

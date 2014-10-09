@@ -11,21 +11,18 @@
 
 
 #define FCY 20000000            // 20 MIPS this is the amount of processes per second
-#define RATED_FREQUENCY 50
-#define FPWM 20000              // 20 kHz switching frequency
+#define FPWM 100000              // 100 kHz switching frequency
 #define _0_DEGREES 0x0000       // 0 degree phase
 #define _120_DEGREES 0x5555     // 120 degree phase
 #define _240_DEGREES 0xAAAA     // 240 degree phase
-//#define _DES_FREQ (float) 60    //target frequency
-//#define _DELTA_PHASE (unsigned int)(_DES_FREQ * 65536 / FPWM)
-#define DEADTIME (unsigned int)(0.000002 * FCY)     //dead time between triggers
+#define _DES_FREQ (float) 120    //target frequency
+#define _DELTA_PHASE (unsigned int)(_DES_FREQ * 65536 / FPWM)
+//#define DEADTIME (unsigned int)(0.000002 * FCY)     //dead time between triggers
+#define DEADTIME (unsigned int)(0.00000 * FCY)
 
-//unsigned int Phase = 0, Delta_Phase = _DELTA_PHASE;
 unsigned int Phase = 0, Delta_Phase;
 unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;
-int Multiplier1, Multiplier2, Multiplier3, Result;
-unsigned int scaler;
-float des_f;
+int Multiplier, Result;
 int sinetable[] = {0, 402, 804, 1206, 1608, 2009, 2411, 2811,
  3212, 3612, 4011, 4410, 4808, 5205, 5602, 5998,
  6393, 6787, 7180, 7571, 7962, 8351, 8740, 9127,
@@ -96,31 +93,31 @@ void __attribute__((__interrupt__, auto_psv)) _PWMInterrupt(void){
 
     Phase += Delta_Phase;       // Accumulate Delta_Phase in Phase variable
     Phase_Offset1 = _0_DEGREES; // Add proper value to phase offset (0 degree)
-    Multiplier1 = sinetable[(Phase + Phase_Offset1) >> 10]; // Take sine info
-    asm("MOV _Multiplier1, W4"); // Load first multiplier
+    Multiplier = sinetable[(Phase + Phase_Offset1) >> 5]; // Take sine info
+    asm("MOV _Multiplier, W4"); // Load first multiplier
     asm("MOV _PTPER, W5");      // Load second multiplier
     asm("MOV #_Result, W0");    // Load W0 with the address of Result
     asm("MPY W4*W5, A");        // Perform Fractional multiplication
     asm("SAC A, [W0]");         // Store multiplication result in var Result
     PDC1 = Result + PTPER;      // Remove negative values of the duty cycle
 
-    Phase_Offset2 = _120_DEGREES; 
-    Multiplier2 = sinetable[(Phase + Phase_Offset2) >> 10];
-    asm("MOV _Multiplier2, W4");
-    asm("MOV _PTPER, W5"); 
-    asm("MOV #_Result, W0"); 
-    asm("MPY W4*W5, A"); 
-    asm("SAC A, [W0]"); 
-    PDC2 = Result + PTPER; 
+    Phase_Offset2 = _120_DEGREES;
+    Multiplier = sinetable[(Phase + Phase_Offset2) >> 5];
+    asm("MOV _Multiplier, W4");
+    asm("MOV _PTPER, W5");
+    asm("MOV #_Result, W0");
+    asm("MPY W4*W5, A");
+    asm("SAC A, [W0]");
+    PDC2 = Result + PTPER;
 
-    Phase_Offset3 = _240_DEGREES; 
-    Multiplier3 = sinetable[(Phase + Phase_Offset3) >> 10];
-    asm("MOV _Multiplier3, W4");
-    asm("MOV _PTPER, W5"); 
-    asm("MOV #_Result, W0"); 
-    asm("MPY W4*W5, A"); 
-    asm("SAC A, [W0]"); 
-    PDC3 = Result + PTPER; 
+    Phase_Offset3 = _240_DEGREES;
+    Multiplier = sinetable[(Phase + Phase_Offset3) >> 5];
+    asm("MOV _Multiplier, W4");
+    asm("MOV _PTPER, W5");
+    asm("MOV #_Result, W0");
+    asm("MPY W4*W5, A");
+    asm("SAC A, [W0]");
+    PDC3 = Result + PTPER;
 
 }
 
@@ -140,13 +137,12 @@ void InitMCPWM(void){
     OVDCON = 0x3F00;                    // PWM outputs are controller by PWM module
     PTCONbits.PTMOD = 2;                // Center aligned PWM operation
     Phase = 0;                          // Reset Phase Variable
-    //Delta_Phase = _DELTA_PHASE;         // Initialize Phase increment for 60Hz sine wave
+    Delta_Phase = _DELTA_PHASE;         // Initialize Phase increment for 60Hz sine wave
     PTCONbits.PTEN = 1;                 // Start PWM
-    scaler = 32767*des_f/RATED_FREQUENCY;
     return;
 }
 
-void init_analog(){
+/*void init_analog(){
     TRISB = 0x01FF;      // Port B all inputs
     ADPCFG = 0x00FF;     // Lowest 8 PORTB pins are analog inputs
     ADCON1 = 0;          // Manually clear SAMP to end sampling, start conversion
@@ -157,23 +153,17 @@ void init_analog(){
 
 unsigned int read_analog()
 {
-    ADCHS = 0xFFFF;          // Select the requested channel
+    ADCHS = 0;          // Select the requested channel
     ADCON1bits.SAMP = 1;      // start sampling
     __delay32(30);            // 1us delay @ 30 MIPS
     ADCON1bits.SAMP = 0;      // start Converting
     while (!ADCON1bits.DONE);
     return ADCBUF0;
-}
+}*/
 
 int main() {
 
-    int n;
-
-    des_f = 60;
-    Delta_Phase = (des_f * 65536 / FPWM);
     InitMCPWM();
-
-    n = read_analog();
 
     while(1){};
 

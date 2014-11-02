@@ -14,12 +14,12 @@ _FWDT(WDT_OFF);                     // Turn off Watchdog Timer
 _FBORPOR(PBOR_OFF & MCLR_EN);       // Set Brown-out Reset voltage and set Power-up Timer to 16 ms
 _FGS(CODE_PROT_OFF);                // Set Code Protection Off
 
-#define FCY 30000000             // 2 MIPS this is the amount of processes per second
+#define FCY 29480000             // 30 MIPS this is the amount of processes per second
 #define FPWM 100000             // 100 kHz switching frequency
 #define _0_DEGREES 0x0000       // 0 degree phase
 #define _120_DEGREES 0x5555     // 120 degree phase
 #define _240_DEGREES 0xAAAA     // 240 degree phase
-#define _DES_FREQ (float) 120    //target frequency
+#define _DES_FREQ (float) 60    //target frequency
 #define _DELTA_PHASE (unsigned int)(_DES_FREQ * 65536 / FPWM)
 #define DEADTIME (unsigned int)(0.0000002 * FCY)     //dead time between triggers 200ns
 

@@ -19,65 +19,87 @@ _FGS(CODE_PROT_OFF);                // Set Code Protection Off
 #define _0_DEGREES 0x0000       // 0 degree phase
 #define _120_DEGREES 0x5555     // 120 degree phase
 #define _240_DEGREES 0xAAAA     // 240 degree phase
-#define _DES_FREQ (float) 60    //target frequency
+#define _DES_FREQ (float) 10    //target frequency
 #define _DELTA_PHASE (unsigned int)(_DES_FREQ * 65536 / FPWM)
 #define DEADTIME (unsigned int)(0.0000002 * FCY)     //dead time between triggers 200ns
 
 
 //#define DEADTIME (unsigned int)(0.00000 * FCY)
 
-unsigned int Phase = 0, Delta_Phase;
+unsigned int Phase1 = 0;
+unsigned int Phase2 = 0;
+unsigned int Delta_Phase1, Delta_Phase2;
+double Delta_Phase_real, right1, right2;
 unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;
-int Multiplier, Result;
+unsigned int Multiplier, Multiplier1, Multiplier2, Result_a, Result_b, Result;
 unsigned char RAMBuffer[256];	//RAM area which will work as EEPROM for Master I2C device
 unsigned char *RAMPtr;			//Pointer to RAM memory locations
 int AddrFlag = 0;	//Initlize AddFlag
 int DataFlag = 0;	//Initlize DataFlag
-const int sinetable[] = { 0,3212,6393,9512,12539,15446,18204,20787,23170,25329,
-
-27245,28898,30273,31356,32137,32609,32767,32609,32137,31356,30273,28898,
-         27245,25329,23170,20787,18204,15446,12539,9512,6393,3212,0,-
-3212,-6393,
-         -9512,-12539,-15446,-18204,-20787,-23170,-25329,-27245,-
-28898,-30273,
-         -31356,-32137,-32609,-32767,-32609,-32137,-31356,-30273,-
-28898,-27245,
-         -25329,-23170,-20787,-18204,-15446,-12539,-9512,-6393,-3212
+const int sinetable[] = {0, 1608, 3212, 4808, 6393, 7962, 9512, 11039, 12539, 14010,
+15446, 16846, 18204, 19519, 20787, 22005, 23170, 24279, 25329, 26319, 27245, 28105,
+28898, 29621, 30273, 30852, 31356, 31785, 32137, 32412, 32609, 32728, 32767, 32728,
+32609, 32412, 32137, 31785, 31356, 30852, 30273, 29621, 28898, 28105, 27245, 26319,
+25329, 24279, 23170, 22005, 20787, 19519, 18204, 16846, 15446, 14010, 12539, 11039,
+9512, 7962, 6393, 4808, 3212, 1608, 0, -1608, -3212, -4808, -6393, -7962, -9512, -11039,
+-12539, -14010, -15446, -16846, -18204, -19519, -20787, -22005, -23170, -24279, -25329,
+-26319, -27245, -28105, -28898, -29621, -30273, -30852, -31356, -31785, -32137, -32412,
+-32609, -32728, -32767, -32728, -32609, -32412, -32137, -31785, -31356, -30852, -30273,
+-29621, -28898, -28105, -27245, -26319, -25329, -24279, -23170, -22005, -20787, -19519,
+-18204, -16846, -15446, -14010, -12539, -11039, -9512, -7962, -6393, -4808, -3212, -1608
 };
 
 void __attribute__((__interrupt__, auto_psv)) _PWMInterrupt(void){
 
-   // PWMCON2bits.UDIS = 1;
-
-    Phase += Delta_Phase;       // Accumulate Delta_Phase in Phase variable
+    Delta_Phase1 = Delta_Phase_real;
+    //Delta_Phase2 = Delta_Phase1 + 1;
+    Phase1 += Delta_Phase1;       // Accumulate Delta_Phase in Phase variable
+    //Phase2 += Delta_Phase2;
+    //Phase2 += Delta_Phase_real;
     Phase_Offset1 = _0_DEGREES; // Add proper value to phase offset (0 degree)
-    Multiplier = sinetable[(Phase + Phase_Offset1) >> 10]; // Take sine info
-    asm("MOV _Multiplier, W4"); // Load first multiplier
+    Multiplier1 = sinetable[(Phase1 + Phase_Offset1) >> 9]; // Take sine info
+   //Multiplier2 = sinetable[(Phase2 + Phase_Offset1) >> 9]; // Take sine info
+
+    //Multiplier = (Multiplier1 + Multiplier2) >> 1;
+
+    asm("MOV _Multiplier1, W4"); // Load first multiplier
     asm("MOV _PTPER, W5");      // Load second multiplier
     asm("MOV #_Result, W0");    // Load W0 with the address of Result
     asm("MPY W4*W5, A");        // Perform Fractional multiplication
     asm("SAC A, [W0]");         // Store multiplication result in var Result
-    PDC1 = Result + PTPER;      // Remove negative values of the duty cycle
+    
+    /*asm("MOV _Multiplier2, W4"); // Load first multiplier
+    asm("MOV _PTPER, W5");      // Load second multiplier
+    asm("MOV #_Result, W0");    // Load W0 with the address of Result
+    asm("MPY W4*W5, A");        // Perform Fractional multiplication
+    asm("SAC A, [W0]");         // Store multiplication result in var Result*/
+    
+    //PDC1 = Result_b + PTPER;      // Remove negative values of the duty cycle
+    //PDC1 = ( (Result_a + PTPER) + (Result + PTPER) )/2;      // Remove negative values of the duty cycle
+    PDC1 = Result + PTPER + RAMBuffer[9];
+    //PDC1 = Result_a + PTPER;
+    //PDC2 = Result + PTPER + 50;
 
     Phase_Offset2 = _120_DEGREES;
-    Multiplier = sinetable[(Phase + Phase_Offset2) >> 10];
-    asm("MOV _Multiplier, W4");
+    Multiplier1 = sinetable[(Phase1 + Phase_Offset2) >> 9]; // Take sine info
+    //Multiplier2 = sinetable[(Phase2 + Phase_Offset2) >> 9]; // Take sine info
+    asm("MOV _Multiplier1, W4");
     asm("MOV _PTPER, W5");
     asm("MOV #_Result, W0");
     asm("MPY W4*W5, A");
     asm("SAC A, [W0]");
-    PDC2 = Result + PTPER;
+    PDC2 = Result + PTPER + RAMBuffer[9];
 
     Phase_Offset3 = _240_DEGREES;
-    Multiplier = sinetable[(Phase + Phase_Offset3) >> 10];
-    asm("MOV _Multiplier, W4");
+    Multiplier1 = sinetable[(Phase1 + Phase_Offset3) >> 9]; // Take sine info
+    //Multiplier2 = sinetable[(Phase2 + Phase_Offset3) >> 9]; // Take sine info
+    asm("MOV _Multiplier1, W4");
     asm("MOV _PTPER, W5");
     asm("MOV #_Result, W0");
     asm("MPY W4*W5, A");
     asm("SAC A, [W0]");
-    PDC3 = Result + PTPER;
+    PDC3 = Result + PTPER + RAMBuffer[9];
 
-    //PWMCON2bits.UDIS = 0;
     IFS2bits.PWMIF = 0;
 
 }
@@ -132,8 +154,6 @@ void InitMCPWM(void){
     IEC2bits.PWMIE = 1;                 // Clear PWM Interrupt flag
     OVDCON = 0x3F00;                    // PWM outputs are controller by PWM module
     PTCONbits.PTMOD = 2;                // Center aligned PWM operation
-    Phase = 0;                          // Reset Phase Variable
-    Delta_Phase = _DELTA_PHASE;         // Initialize Phase increment for 60Hz sine wave
     PTCONbits.PTEN = 1;                 // Start PWM
     return;
 }
@@ -150,13 +170,16 @@ void i2c_init(void){
 
 int main() {
 
-    RAMBuffer[7] = 60;
+    RAMBuffer[7] = 10;
+    RAMBuffer[9] = 0;
     i2c_init();
     InitMCPWM();
 
+    _LATD0 = 1;
     while(1){
 
-        Delta_Phase = (RAMBuffer[7] * 65536 / FPWM);
+        Delta_Phase_real = (RAMBuffer[7] * 65535 / FPWM);
+        //Delta_Phase1 = Delta_Phase_real;
 
     };
 

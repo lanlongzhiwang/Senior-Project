@@ -10,12 +10,14 @@
 #include <libpic30.h>
 
 _FOSC(CSW_FSCM_OFF & FRC_PLL16);
+//_FOSC(CSW_FSCM_OFF & FRC_PLL4);
 _FWDT(WDT_OFF);                     // Turn off Watchdog Timer
 _FBORPOR(PBOR_OFF & MCLR_EN);       // Set Brown-out Reset voltage and set Power-up Timer to 16 ms
 _FGS(CODE_PROT_OFF);                // Set Code Protection Off
 
-#define FCY 29480000             // 30 MIPS this is the amount of processes per second
-#define FPWM 100000             // 100 kHz switching frequency
+//#define FCY 29840000             // 30 MIPS this is the amount of processes per second
+#define FCY 29400000
+#define FPWM 65000             // 100 kHz switching frequency
 #define _0_DEGREES 0x0000       // 0 degree phase
 #define _120_DEGREES 0x5555     // 120 degree phase
 #define _240_DEGREES 0xAAAA     // 240 degree phase
@@ -26,64 +28,44 @@ _FGS(CODE_PROT_OFF);                // Set Code Protection Off
 
 //#define DEADTIME (unsigned int)(0.00000 * FCY)
 
-unsigned int Phase1 = 0;
-unsigned int Phase2 = 0;
-unsigned int Delta_Phase1, Delta_Phase2;
-double Delta_Phase_real, right1, right2;
+unsigned int Phase = 0;
+unsigned int Delta_Phase, check;
+double Delta_Phase_real;
 unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;
-unsigned int Multiplier, Multiplier1, Multiplier2, Result_a, Result_b, Result;
+unsigned int Multiplier, Result;
 unsigned char RAMBuffer[256];	//RAM area which will work as EEPROM for Master I2C device
 unsigned char *RAMPtr;			//Pointer to RAM memory locations
 int AddrFlag = 0;	//Initlize AddFlag
 int DataFlag = 0;	//Initlize DataFlag
-const int sinetable[] = {0, 1608, 3212, 4808, 6393, 7962, 9512, 11039, 12539, 14010,
-15446, 16846, 18204, 19519, 20787, 22005, 23170, 24279, 25329, 26319, 27245, 28105,
-28898, 29621, 30273, 30852, 31356, 31785, 32137, 32412, 32609, 32728, 32767, 32728,
-32609, 32412, 32137, 31785, 31356, 30852, 30273, 29621, 28898, 28105, 27245, 26319,
-25329, 24279, 23170, 22005, 20787, 19519, 18204, 16846, 15446, 14010, 12539, 11039,
-9512, 7962, 6393, 4808, 3212, 1608, 0, -1608, -3212, -4808, -6393, -7962, -9512, -11039,
--12539, -14010, -15446, -16846, -18204, -19519, -20787, -22005, -23170, -24279, -25329,
--26319, -27245, -28105, -28898, -29621, -30273, -30852, -31356, -31785, -32137, -32412,
--32609, -32728, -32767, -32728, -32609, -32412, -32137, -31785, -31356, -30852, -30273,
--29621, -28898, -28105, -27245, -26319, -25329, -24279, -23170, -22005, -20787, -19519,
--18204, -16846, -15446, -14010, -12539, -11039, -9512, -7962, -6393, -4808, -3212, -1608
+const int sinetable[] = {0, 3212, 6393, 9512, 12539, 15446, 18204, 20787, 23170,
+25329, 27245, 28898, 30273, 31356, 32137, 32609, 32767, 32609, 32137, 31356, 30273,
+28898, 27245, 25329, 23170, 20787, 18204, 15446, 12539, 9512, 6393, 3212, 0, -3212,
+-6393, -9512, -12539, -15446, -18204, -20787, -23170, -25329, -27245, -28898, -30273,
+-31356, -32137, -32609, -32767, -32609, -32137, -31356, -30273, -28898, -27245, -25329,
+-23170, -20787, -18204, -15446, -12539, -9512, -6393, -3212
 };
 
-void __attribute__((__interrupt__, auto_psv)) _PWMInterrupt(void){
+void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
 
-    Delta_Phase1 = Delta_Phase_real;
-    //Delta_Phase2 = Delta_Phase1 + 1;
-    Phase1 += Delta_Phase1;       // Accumulate Delta_Phase in Phase variable
-    //Phase2 += Delta_Phase2;
+    Phase += Delta_Phase;       // Accumulate Delta_Phase in Phase variable
     //Phase2 += Delta_Phase_real;
     Phase_Offset1 = _0_DEGREES; // Add proper value to phase offset (0 degree)
-    Multiplier1 = sinetable[(Phase1 + Phase_Offset1) >> 9]; // Take sine info
-   //Multiplier2 = sinetable[(Phase2 + Phase_Offset1) >> 9]; // Take sine info
+    Multiplier = sinetable[(Phase + Phase_Offset1) >> 10]; // Take sine info
 
     //Multiplier = (Multiplier1 + Multiplier2) >> 1;
 
-    asm("MOV _Multiplier1, W4"); // Load first multiplier
+    asm("MOV _Multiplier, W4"); // Load first multiplier
     asm("MOV _PTPER, W5");      // Load second multiplier
     asm("MOV #_Result, W0");    // Load W0 with the address of Result
     asm("MPY W4*W5, A");        // Perform Fractional multiplication
     asm("SAC A, [W0]");         // Store multiplication result in var Result
-    
-    /*asm("MOV _Multiplier2, W4"); // Load first multiplier
-    asm("MOV _PTPER, W5");      // Load second multiplier
-    asm("MOV #_Result, W0");    // Load W0 with the address of Result
-    asm("MPY W4*W5, A");        // Perform Fractional multiplication
-    asm("SAC A, [W0]");         // Store multiplication result in var Result*/
-    
-    //PDC1 = Result_b + PTPER;      // Remove negative values of the duty cycle
-    //PDC1 = ( (Result_a + PTPER) + (Result + PTPER) )/2;      // Remove negative values of the duty cycle
+
     PDC1 = Result + PTPER + RAMBuffer[9];
-    //PDC1 = Result_a + PTPER;
-    //PDC2 = Result + PTPER + 50;
 
     Phase_Offset2 = _120_DEGREES;
-    Multiplier1 = sinetable[(Phase1 + Phase_Offset2) >> 9]; // Take sine info
+    Multiplier = sinetable[(Phase + Phase_Offset2) >> 10]; // Take sine info
     //Multiplier2 = sinetable[(Phase2 + Phase_Offset2) >> 9]; // Take sine info
-    asm("MOV _Multiplier1, W4");
+    asm("MOV _Multiplier, W4");
     asm("MOV _PTPER, W5");
     asm("MOV #_Result, W0");
     asm("MPY W4*W5, A");
@@ -91,9 +73,9 @@ void __attribute__((__interrupt__, auto_psv)) _PWMInterrupt(void){
     PDC2 = Result + PTPER + RAMBuffer[9];
 
     Phase_Offset3 = _240_DEGREES;
-    Multiplier1 = sinetable[(Phase1 + Phase_Offset3) >> 9]; // Take sine info
+    Multiplier = sinetable[(Phase + Phase_Offset3) >> 10]; // Take sine info
     //Multiplier2 = sinetable[(Phase2 + Phase_Offset3) >> 9]; // Take sine info
-    asm("MOV _Multiplier1, W4");
+    asm("MOV _Multiplier, W4");
     asm("MOV _PTPER, W5");
     asm("MOV #_Result, W0");
     asm("MPY W4*W5, A");
@@ -141,7 +123,7 @@ void __attribute__((interrupt,no_auto_psv)) _SI2CInterrupt(void){
 void InitMCPWM(void){
     TRISE = 0x0100;                     // PWM pins as outputs, and FLTA as input
     //PTPER = 9;
-    PTPER = (FCY/FPWM - 1) >> 1;        // Compute Period for desired frequency
+    PTPER = (FCY/FPWM -1) >> 1;        // Compute Period for desired frequency
     OVDCON = 0x0000;                    // Disable all PWM outputs.
     DTCON1 = DEADTIME;                  // ~200 ns of dead time @ 20 MIPS and 1:1 Prescaler
     PWMCON1 = 0x0077;                   // Enable PWM output pins and enable complementary mode
@@ -178,8 +160,7 @@ int main() {
     _LATD0 = 1;
     while(1){
 
-        Delta_Phase_real = (RAMBuffer[7] * 65535 / FPWM);
-        //Delta_Phase1 = Delta_Phase_real;
+        Delta_Phase = (RAMBuffer[7] * 65536 / FPWM);
 
     };
 

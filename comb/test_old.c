@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <pwm.h>
 #include <pwm12.h>
-//#include <p30F5015.h>
 #include <p30F4012.h>
 #include <p30Fxxxx.h>
 #include <math.h>
@@ -21,10 +20,10 @@ _FOSC(CSW_FSCM_OFF & FRC_PLL16);    // Fail-Safe Clock Monito turn off
 #define _120_DEGREES 0x5555         // 120 degree phase
 #define _240_DEGREES 0xAAAA         // 240 degree phase
 #define _DES_FREQ (float) 10        //target frequency
-#define DEADTIME (unsigned int)(0.0000004 * FCY)     //dead time between triggers 400ns
+#define DEADTIME (unsigned int)(0.0000002 * FCY)     //dead time between triggers 200ns
 
 unsigned int Phase = 0;                                         //Initlize Phase variable
-unsigned int Delta_Phase = 20;                                  //Declare Delta Phase
+unsigned int Delta_Phase;                                  //Declare Delta Phase
 unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;       //Declare 3-phase PWM each offset
 unsigned int Multiplier, Result;                                //Declare some variable use in asm() function
 unsigned char RAMBuffer[256];                                   //RAM Buffer
@@ -42,10 +41,21 @@ int DataFlag = 0;                                               //Initlize DataF
 
 };*/
 
-const int sinetable[] = {0, 3212, 6393, 9512, 12539, 15446, 18204, 20787, 23170, 25329, 27245, 28898, 30273, 31356, 32137, 32609, 32767, 32609, 32137, 31356, 30273, 28898, 27245, 25329, 23170, 20787, 18204, 15446, 12539, 9512, 6393, 3212, 0, -3212, -6393, -9512, -12539, -15446, -18204, -20787, -23170, -25329, -27245, -28898, -30273, -31356, -32137, -32609, -32767, -32609, -32137, -31356, -30273, -28898, -27245, -25329, -23170, -20787, -18204, -15446, -12539, -9512, -6393, -3212};
+//sinetable with 64 entry (regular)
+const int sinetable[] = {0, 3212, 6393, 9512, 12539, 15446, 18204, 20787, 23170,
+                         25329, 27245, 28898, 30273, 31356, 32137, 32609, 32767,
+                         32609, 32137, 31356, 30273, 28898, 27245, 25329, 23170,
+                         20787, 18204, 15446, 12539, 9512, 6393, 3212, 0, -3212,
+                         -6393, -9512, -12539, -15446, -18204, -20787, -23170,
+                         -25329, -27245, -28898, -30273, -31356, -32137, -32609,
+                         -32767, -32609, -32137, -31356, -30273, -28898, -27245,
+                         -25329, -23170, -20787, -18204, -15446, -12539, -9512,
+                         -6393, -3212};
 
 //PWM main loop
 void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
+
+    PWMCON2bits.UDIS = 1;                                   //Updates from duty cycle and period buffer registers are disabled
 
     Phase += Delta_Phase;                                   // Accumulate Delta_Phase in Phase variable
     Phase_Offset1 = _0_DEGREES;                             // Add proper value to phase offset (0 degree)
@@ -57,7 +67,7 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     asm("MPY W4*W5, A");                                    // Perform Fractional multiplication
     asm("SAC A, [W0]");                                     // Store multiplication result in var Result
 
-    PDC1 = Result;                                          // The duty cycle of first PWM
+    PDC1 = Result + PTPER;                                  // The duty cycle of first PWM
 
     Phase_Offset2 = _120_DEGREES;                           // Add proper value to phase offset (120 degree)
     Multiplier = sinetable[(Phase + Phase_Offset2) >> 10];  // Take sinetable info
@@ -68,7 +78,7 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     asm("MPY W4*W5, A");                                    // Perform Fractional multiplication
     asm("SAC A, [W0]");                                     // Store multiplication result in var Result
     
-    PDC2 = Result;                                          // The duty cycle of second PWM
+    PDC2 = Result + PTPER;                                          // The duty cycle of second PWM
 
     Phase_Offset3 = _240_DEGREES;                           // Add proper value to phase offset (240 degree)
     Multiplier = sinetable[(Phase + Phase_Offset3) >> 10];  // Take sinetable inf
@@ -79,8 +89,9 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     asm("MPY W4*W5, A");                                    // Perform Fractional multiplication
     asm("SAC A, [W0]");                                     // Store multiplication result in var Result
 
-    PDC3 = Result;                                          // The duty cycle of third PWM
+    PDC3 = Result + PTPER;                                  // The duty cycle of third PWM
 
+    PWMCON2bits.UDIS = 0;                                   //Updates from duty cycle and period buffer registers are enabled
     IFS2bits.PWMIF = 0;                                     //Clear PWM Interrupt Request Flags
 
 }
@@ -180,10 +191,11 @@ int main() {
     //I2C_init();
     PWM_init();
     //ADC_init();
+    RAMBuffer[7] = 27;
 
     while(1){
 
-        //Delta_Phase = (RAMBuffer[7] * 65536 / FPWM);
+        Delta_Phase = (RAMBuffer[7] * 65536 / FPWM);
 
     };
 

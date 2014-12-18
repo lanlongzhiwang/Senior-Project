@@ -23,7 +23,7 @@ _FOSC(CSW_FSCM_OFF & FRC_PLL16);    // Fail-Safe Clock Monito turn off
 #define DEADTIME (unsigned int)(0.0000002 * FCY)     //dead time between triggers 200ns
 
 unsigned int Phase = 0;                                         //Initlize Phase variable
-unsigned int Delta_Phase;                                  //Declare Delta Phase
+unsigned int Delta_Phase;                                       //Declare Delta Phase
 unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;       //Declare 3-phase PWM each offset
 unsigned int Multiplier, Result;                                //Declare some variable use in asm() function
 unsigned char RAMBuffer[256];                                   //RAM Buffer
@@ -96,7 +96,7 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
 
 }
 //I2C main loop
-/*void __attribute__((interrupt,no_auto_psv)) _SI2CInterrupt(void){
+void __attribute__((interrupt,no_auto_psv)) _SI2CInterrupt(void){
 
 	unsigned char Temp;                                     // Used for dummy read
 
@@ -140,7 +140,7 @@ int read_ADC(int channel){
     while (!ADCON1bits.DONE);   // Wait until A/D conversion is done
                                 // Should take 12 * (sampling time) = 1.2us
     return ADCBUF0;             // Return value
-}*/
+}
 
 //Initlize PWM mode
 void PWM_init(void){
@@ -161,7 +161,7 @@ void PWM_init(void){
     return;
 }
 //Initlize I2C mode
-/*void I2C_init(void){
+void I2C_init(void){
 	I2CCON = 0x8000;	// Enable I2C1 slave module
 	I2CADD = 0x77;          // Initialised 7-bits I2C slave address
 
@@ -184,18 +184,34 @@ void ADC_init(void){
                                 // 7 * 33 = 231 ns(4.329 MHz)
                                 // Our max PWM frequency after is 120 Hz so 7 just my favourite number
     ADCON1bits.ADON = 1;        // Turn ADC ON
-}*/
+}
 
 int main() {
 
-    //I2C_init();
+    int feq = 27;
+    int difference, i;
+
+    I2C_init();
     PWM_init();
     //ADC_init();
-    RAMBuffer[7] = 27;
+    RAMBuffer[7] = feq;
+
 
     while(1){
 
-        Delta_Phase = (RAMBuffer[7] * 65536 / FPWM);
+        difference = feq - RAMBuffer[7];
+        difference = sqrt(difference * difference);
+
+        if(difference < 2){
+            Delta_Phase = (feq * 65536 / FPWM);
+        }
+        else{
+            for(i=0; i<difference; i++){
+                feq += 1;
+                Delta_Phase = (feq * 65536 / FPWM);
+                __delay32(60000);
+            }
+        }
 
     };
 

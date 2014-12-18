@@ -10,42 +10,46 @@
 #include <libpic30.h>
 
 _FOSC(CSW_FSCM_OFF & FRC_PLL16);                    // Fail-Safe Clock Monito turn off
-                                                    // 7.37 MHz internal RC oscillator, 16x PLL enabled
+                                                    // 7.37 MHz internal RC oscillator, 
+                                                    // 16x PLL enabled
                                                     // 7.37M*16/4 = 29.84 Mhz
+_FBORPOR(MCLR_DIS);                                 // Disable the MCLR
 
-#define FCY 29840000                                // 29.84 MIPS this is the amount of processes per second
-                                                    // Tcy = 33 ns
+#define FCY 29840000                                // 29.84 MIPS this is the amount of 
+                                                    // processes per second Tcy = 33 ns
 #define FPWM 65000                                  // 65 kHz switching frequency
 #define _0_DEGREES 0x0000                           // 0 degree phase
 #define _120_DEGREES 0x5555                         // 120 degree phase
 #define _240_DEGREES 0xAAAA                         // 240 degree phase
-#define _DES_FREQ (float) 10                        //target frequency
-#define DEADTIME (unsigned int)(0.0000004 * FCY)    //dead time between triggers 400ns
+#define _DES_FREQ (float) 10                        // Target frequency
+#define DEADTIME (unsigned int)(0.0000004 * FCY)    // Dead time between triggers 400ns
 
-#define frequency 0                                 // Define frequency register is 0
-#define PWM1_voltage_h 1                            // Define PWM1 voltage higher 8-bits register is 1
-#define PWM1_voltage_l 2                            // Define PWM1 voltage lowr 8-bits register is 2
-#define PWM1_current_h 3                            // Define PWM1 current higher 8-bits register is 3
-#define PWM1_current_l 4                            // Define PWM1 current lowr 8-bits register is 4
-#define PWM2_voltage_h 5                            // Define PWM2 voltage higher 8-bits register is 5
-#define PWM2_voltage_l 6                            // Define PWM2 voltage lowr 8-bits register is 6
-#define PWM2_current_h 7                            // Define PWM2 current higher 8-bits register is 7
-#define PWM2_current_l 8                            // Define PWM2 current lowr 8-bits register is 8
-#define PWM3_voltage_h 9                            // Define PWM3 voltage higher 8-bits register is 9
-#define PWM3_voltage_l 10                           // Define PWM3 voltage lowr 8-bits register is 10
-#define PWM3_current_h 11                           // Define PWM3 current higher 8-bits register is 11
-#define PWM3_current_l 12                           // Define PWM3 current lowr 8-bits register is 12
-#define DC_voltage_h 13                             // Define PWM2 voltage higher 8-bits register is 13
-#define DC_voltage_l 14                             // Define PWM2 voltage lowr 8-bits register is 14
+#define frequency 0            // Define frequency register is 0
+#define PWM1_voltage_h 1       // Define PWM1 voltage higher 8-bits register is 1
+#define PWM1_voltage_l 2       // Define PWM1 voltage lowr 8-bits register is 2
+#define PWM1_current_h 3       // Define PWM1 current higher 8-bits register is 3
+#define PWM1_current_l 4       // Define PWM1 current lowr 8-bits register is 4
+#define PWM2_voltage_h 5       // Define PWM2 voltage higher 8-bits register is 5
+#define PWM2_voltage_l 6       // Define PWM2 voltage lowr 8-bits register is 6
+#define PWM2_current_h 7       // Define PWM2 current higher 8-bits register is 7
+#define PWM2_current_l 8       // Define PWM2 current lowr 8-bits register is 8
+#define PWM3_voltage_h 9       // Define PWM3 voltage higher 8-bits register is 9
+#define PWM3_voltage_l 10      // Define PWM3 voltage lowr 8-bits register is 10
+#define PWM3_current_h 11      // Define PWM3 current higher 8-bits register is 11
+#define PWM3_current_l 12      // Define PWM3 current lowr 8-bits register is 12
+#define DC_voltage_h 13        // Define PWM2 voltage higher 8-bits register is 13
+#define DC_voltage_l 14        // Define PWM2 voltage lowr 8-bits register is 14
 
-unsigned int Phase = 0;                                         // Initialize Phase variable
-unsigned int Delta_Phase;                                       // Declare Delta Phase
-unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3;       // Declare 3-phase PWM each offset
-unsigned int Multiplier, Result;                                // Declare some variable use in asm() function
-unsigned char RAMBuffer[256];                                   // RAM Buffer
-unsigned char *RAMPtr;                                          // Pointer to RAM memory locations
-int AddrFlag = 0;                                               // Initialize AddressFlag
-int DataFlag = 0;                                               // Initialize DataFlag
+unsigned int Phase = 0;                                   // Initialize Phase variable
+unsigned int Delta_Phase;                                 // Declare Delta Phase
+unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3; // Declare 3-phase PWM each offset
+unsigned int Multiplier, Result;                          // Declare some variable use in
+                                                          // asm() function
+unsigned char RAMBuffer[256];                             // RAM Buffer
+unsigned char *RAMPtr;                                    // Pointer to RAM memory
+                                                          // locations
+int AddrFlag = 0;                                         // Initialize AddressFlag
+int DataFlag = 0;                                         // Initialize DataFlag
 
 //sinetable with 64 entry (special)
 /*const int sinetable[] ={
@@ -72,19 +76,19 @@ void PWM_init(void){
    
     
 
-    TRISE = 0x0100;                     // PWM pins as outputs, and FLTA as input
-    PTPER = (FCY/FPWM -1) >> 1;         // Compute Period for desired frequency
-    OVDCON = 0x0000;                    // Disable all PWM outputs.
-    DTCON1 = DEADTIME;                  // 400 ns of dead time @ 20 MIPS and 1:1 Prescaler
-    PWMCON1 = 0x0077;                   // Enable PWM output pins and enable complementary mode
-    PDC1 = PTPER;                       // Initialize 50% duty cycle of first PWM
-    PDC2 = PTPER;                       // Initialize 50% duty cycle of second PWM
-    PDC3 = PTPER;                       // Initialize 50% duty cycle of third PWM
-    IFS2bits.PWMIF = 0;                 // Clear PWM Interrupt flag
-    IEC2bits.PWMIE = 1;                 // Clear PWM Interrupt flag
-    OVDCON = 0x3F00;                    // PWM outputs are controller by PWM module
-    PTCONbits.PTMOD = 2;                // Center aligned PWM operation
-    PTCONbits.PTEN = 1;                 // Start PWM
+    TRISE = 0x0100;             // PWM pins as outputs, and FLTA as input
+    PTPER = (FCY/FPWM -1) >> 1; // Compute Period for desired frequency
+    OVDCON = 0x0000;            // Disable all PWM outputs.
+    DTCON1 = DEADTIME;          // 400 ns of dead time @ 20 MIPS and 1:1 Prescaler
+    PWMCON1 = 0x0077;           // Enable PWM output pins and enable complementary mode
+    PDC1 = PTPER;               // Initialize 50% duty cycle of first PWM
+    PDC2 = PTPER;               // Initialize 50% duty cycle of second PWM
+    PDC3 = PTPER;               // Initialize 50% duty cycle of third PWM
+    IFS2bits.PWMIF = 0;         // Clear PWM Interrupt flag
+    IEC2bits.PWMIE = 1;         // Clear PWM Interrupt flag
+    OVDCON = 0x3F00;            // PWM outputs are controller by PWM module
+    PTCONbits.PTMOD = 2;        // Center aligned PWM operation
+    PTCONbits.PTEN = 1;         // Start PWM
     return;
 }
 //Initialize I2C mode
@@ -109,51 +113,54 @@ void ADC_init(void){
     ADCON2 = 0;                 // Voltage reference from AVDD and AVSS
     ADCON3bits.ADCS = 30;       // A/D Conversion Clock Select (Tcy/2)*(ADCS+1) = Tcy
                                 // 30 * 33 = 990 ns(1 MHz)
-                                // Our max PWM frequency after is 120 Hz so 1 MHz is way to fast
+                                // Our max PWM frequency after is 120 Hz so 1 MHz is way 
+                                // too fast
     ADCON1bits.ADON = 1;        // Turn ADC ON
 }
 
 //PWM main loop
 void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
 
-    PWMCON2bits.UDIS = 1;                                   //Updates from duty cycle and period buffer registers are disabled
+    PWMCON2bits.UDIS = 1;             // Updates from duty cycle and period buffer
+                                      // registers are disabled
 
-    Phase += Delta_Phase;                                   // Accumulate Delta_Phase in Phase variable
-    Phase_Offset1 = _0_DEGREES;                             // Add proper value to phase offset (0 degree)
+    Phase += Delta_Phase;             // Accumulate Delta_Phase in Phase variable
+    Phase_Offset1 = _0_DEGREES;       // Add proper value to phase offset (0 degree)
     Multiplier = sinetable[(Phase + Phase_Offset1) >> 10];  // Take sinetable info
 
-    asm("MOV _Multiplier, W4");                             // Load first multiplier
-    asm("MOV _PTPER, W5");                                  // Load second multiplier
-    asm("MOV #_Result, W0");                                // Load W0 with the address of Result
-    asm("MPY W4*W5, A");                                    // Perform Fractional multiplication
-    asm("SAC A, [W0]");                                     // Store multiplication result in var Result
+    asm("MOV _Multiplier, W4");       // Load first multiplier
+    asm("MOV _PTPER, W5");            // Load second multiplier
+    asm("MOV #_Result, W0");          // Load W0 with the address of Result
+    asm("MPY W4*W5, A");              // Perform Fractional multiplication
+    asm("SAC A, [W0]");               // Store multiplication result in var Result
 
-    PDC1 = Result + PTPER;                                          // The duty cycle of first PWM
+    PDC1 = Result + PTPER;            // The duty cycle of first PWM
 
-    Phase_Offset2 = _120_DEGREES;                           // Add proper value to phase offset (120 degree)
+    Phase_Offset2 = _120_DEGREES;     // Add proper value to phase offset (120 degree)
     Multiplier = sinetable[(Phase + Phase_Offset2) >> 10];  // Take sinetable info
 
-    asm("MOV _Multiplier, W4");                             // Load first multiplier
-    asm("MOV _PTPER, W5");                                  // Load second multiplier
-    asm("MOV #_Result, W0");                                // Load W0 with the address of Result
-    asm("MPY W4*W5, A");                                    // Perform Fractional multiplication
-    asm("SAC A, [W0]");                                     // Store multiplication result in var Result
+    asm("MOV _Multiplier, W4");       // Load first multiplier
+    asm("MOV _PTPER, W5");            // Load second multiplier
+    asm("MOV #_Result, W0");          // Load W0 with the address of Result
+    asm("MPY W4*W5, A");              // Perform Fractional multiplication
+    asm("SAC A, [W0]");               // Store multiplication result in var Result
     
-    PDC2 = Result + PTPER;                                          // The duty cycle of second PWM
+    PDC2 = Result + PTPER;            // The duty cycle of second PWM
 
-    Phase_Offset3 = _240_DEGREES;                           // Add proper value to phase offset (240 degree)
+    Phase_Offset3 = _240_DEGREES;     // Add proper value to phase offset (240 degree)
     Multiplier = sinetable[(Phase + Phase_Offset3) >> 10];  // Take sinetable inf
 
-    asm("MOV _Multiplier, W4");                             // Load first multiplier
-    asm("MOV _PTPER, W5");                                  // Load second multiplier
-    asm("MOV #_Result, W0");                                // Load W0 with the address of Result
-    asm("MPY W4*W5, A");                                    // Perform Fractional multiplication
-    asm("SAC A, [W0]");                                     // Store multiplication result in var Result
+    asm("MOV _Multiplier, W4");       // Load first multiplier
+    asm("MOV _PTPER, W5");            // Load second multiplier
+    asm("MOV #_Result, W0");          // Load W0 with the address of Result
+    asm("MPY W4*W5, A");              // Perform Fractional multiplication
+    asm("SAC A, [W0]");               // Store multiplication result in var Result
 
-    PDC3 = Result + PTPER;                                          // The duty cycle of third PWM
+    PDC3 = Result + PTPER;            // The duty cycle of third PWM
 
-    PWMCON2bits.UDIS = 0;                                   //Updates from duty cycle and period buffer registers are enabled
-    IFS2bits.PWMIF = 0;                                     //Clear PWM Interrupt Request Flags
+    PWMCON2bits.UDIS = 0;             // Updates from duty cycle and period buffer registers
+                                      // are enabled
+    IFS2bits.PWMIF = 0;               // Clear PWM Interrupt Request Flags
 
 }
 //I2C main loop
@@ -184,7 +191,8 @@ void __attribute__((interrupt,no_auto_psv)) _SI2CInterrupt(void){
         else if((I2CSTATbits.R_W == 1)&&(I2CSTATbits.D_A == 0)) // Check for read
 	{
 		Temp = I2CRCV;                                  // Dummy read
-		I2CTRN = *RAMPtr;                               // Read data from RAM & send data to I2C master device
+		I2CTRN = *RAMPtr;                               // Read data from RAM & send data
+                                                                // to I2C master device
 		I2CCONbits.SCLREL = 1;                          // Release SCL1 line
 		while(I2CSTATbits.TBF);                         // Wait till all
 		RAMPtr = &RAMBuffer[0];                         // Reset the RAM pointer
@@ -206,25 +214,29 @@ int read_ADC(int pin, int delay){
 //Calculate RMS value
 void RMS(int *diff_h, int *diff_l, int index1, int index2){
     
-    int sum = 0;                                                        // Initialize sum to zero
-    int mean, root;                                                     // Declare mean and root
-    int i;                                                              // Declare index
+    int sum = 0;                            // Initialize sum to zero
+    int mean, root;                         // Declare mean and root
+    int i;                                  // Declare index
 
-    for(i=0; i<64; i++){                                                // Calculate square sum
+                                            // Calculate square sum
+    for(i=0; i<64; i++){                                                
         sum += (diff_h[i] - diff_l[i]) * (diff_h[i] - diff_l[i]);
     }
-    mean = sum/64;                                                      // Calculate mean value with 64 entrys
-    root = sqrt(mean);                                                  // Calculate root base on mean
+    mean = sum/64;                          // Calculate mean value with 64 entrys
+    root = sqrt(mean);                      // Calculate root base on mean
 
-    RAMBuffer[index1] = root >> 8;                                      // Put higher 8-bit into the 1 RAM register
-    RAMBuffer[index1] = root - (root >> 8);                             // Put lower 8-bit into the 1 RAM registers
+    RAMBuffer[index1] = root >> 8;          // Put higher 8-bit into the 1 RAM register
+    RAMBuffer[index1] = root - (root >> 8); // Put lower 8-bit into the 1 RAM registers
     
 }
 int main() {
 
-    int i;                                                  // Declare index
-    int time_unit;                                          // Declare 1 time delay
-    int p1_v_h[64], p1_v_l[64], p1_c_h[64], p1_c_l[64],     // Declare all differential input with 64 entrys
+    // Declare index
+    int i;
+    // Declare 1 time delay
+    int time_unit;                                         
+    // Declare all differential input with 64 entrys
+    int p1_v_h[64], p1_v_l[64], p1_c_h[64], p1_c_l[64],     
         p2_v_h[64], p2_v_l[64], p2_c_h[64], p2_c_l[64],
         p3_v_h[64], p3_v_l[64], p3_c_h[64], p3_c_l[64],
         dc_h[64], dc_l[64];
@@ -236,12 +248,15 @@ int main() {
     RAMBuffer[frequency] = 17;                              // Initialize frequency to 17 Hz
 
     while(1){
+        
+        // Calculate delta phase base on frequency
+        Delta_Phase = (RAMBuffer[frequency] * 65536 / FPWM);
 
-        Delta_Phase = (RAMBuffer[frequency] * 65536 / FPWM);// Calculate delta phase base on frequency
+        // Calculate ADC sampling time base on frequency
+        time_unit = 2319002/RAMBuffer[frequency];           
 
-        time_unit = 2319002/RAMBuffer[frequency];           // Calculate ADC sampling time base on frequency
-
-        for(i=0; i<64; i++){                                // Get the all 14 differential inputs
+        // Get the all 14 differential inputs
+        for(i=0; i<64; i++){                                
             p1_v_h[i] = read_ADC(0, time_unit);
             p1_v_l[i] = read_ADC(0, time_unit);
             p1_c_h[i] = read_ADC(0, time_unit);
@@ -257,7 +272,8 @@ int main() {
             dc_h[i] = read_ADC(0, time_unit);
             dc_l[i] = read_ADC(0, time_unit);
         }
-                                                            // Calculate all RMS value and store into the RAM
+        
+        // Calculate all RMS value and store into the RAM
         RMS(p1_v_h,  p1_v_l, PWM1_voltage_h, PWM1_voltage_l);
         RMS(p1_c_h,  p1_c_l, PWM1_current_h, PWM1_current_l);
         RMS(p2_v_h,  p2_v_l, PWM2_voltage_h, PWM2_voltage_l);

@@ -105,9 +105,9 @@ void ADC_init(void){
     ADPCFG = 0x0000;            // All 16 PORTB pins are analog inputsb
     ADCON1 = 0;                 // Manually clear SAMP to end sampling, start conversion
     ADCON2 = 0;                 // Voltage reference from AVDD and AVSS
-    ADCON3bits.ADCS = 0x0007;   // A/D Conversion Clock Select (Tcy/2)*(ADCS+1) = Tcy
-                                // 7 * 33 = 231 ns(4.329 MHz)
-                                // Our max PWM frequency after is 120 Hz so 7 just my favourite number
+    ADCON3bits.ADCS = 30;       // A/D Conversion Clock Select (Tcy/2)*(ADCS+1) = Tcy
+                                // 30 * 33 = 990 ns(1 MHz)
+                                // Our max PWM frequency after is 120 Hz so 1 MHz is way to fast
     ADCON1bits.ADON = 1;        // Turn ADC ON
 }
 
@@ -195,7 +195,7 @@ int read_ADC(int pin, int delay){
     __delay32(delay);           // delay*33ns delay at 30 MIPS
     ADCON1bits.SAMP = 0;        // Start Converting
     while (!ADCON1bits.DONE);   // Wait until A/D conversion is done
-                                // Should take 12 * (sampling time)
+                                // Should take 12 * Tad = 12 * 1 = 12 us
     return ADCBUF0;             // Return value
 }
 //Calculate RMS value
@@ -234,7 +234,7 @@ int main() {
 
         Delta_Phase = (RAMBuffer[frequency] * 65536 / FPWM);// Calculate delta phase base on frequency
 
-        time_unit = 16555/RAMBuffer[frequency];             // Calculate ADC sampling time base on frequency
+        time_unit = 2319002/RAMBuffer[frequency];             // Calculate ADC sampling time base on frequency
 
         for(i=0; i<64; i++){                                // Get the all 14 differential inputs
             p1_v_h[i] = read_ADC(0, time_unit);

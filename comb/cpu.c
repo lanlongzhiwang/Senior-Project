@@ -127,7 +127,14 @@ void write_txt(double p1_v, double p1_c, double p2_v, double p2_c,
                    
     FILE* fp = fopen("data.txt","w");
     
-    fprintf(fp, "%f\n%f\n%f\n%f\n%f\n%f\n%f\n", p1_v, p1_c, p2_v, p2_c, p3_v, p3_c, dc);
+    fprintf(fp, "The PWM1 RMS Voltage is %.2lf Volt\n\
+                 The PWM1 RMS Current is %f Amp\n\
+                 The PWM2 RMS Voltage is %.2lf Volt\n\
+                 The PWM2 RMS Current is %f Amp\n\
+                 The PWM3 RMS Voltage is %.2lf Volt\n\
+                 The PWM3 RMS Current is %f Amp\n\
+                 The DC Voltage is %.2lf Volt\n",\
+                 p1_v, p1_c, p2_v, p2_c, p3_v, p3_c, dc);
     
     fclose(fp);
         

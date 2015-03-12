@@ -132,7 +132,7 @@ void __attribute__((interrupt,no_auto_psv)) _SI2CInterrupt(void){
 	_SI2CIF = 0;                                            // Clear I2C1 Slave interrupt flag
 }
 //read value from ADC
-int read_ADC(int channel){
+/*int read_ADC(int channel){
     ADCHSbits.CH0SA = channel;  // Select the requested channel
     ADCON1bits.SAMP = 1;        // Start sampling
     //__delay32(30);            // 1us delay at 30 MIPS
@@ -140,7 +140,7 @@ int read_ADC(int channel){
     while (!ADCON1bits.DONE);   // Wait until A/D conversion is done
                                 // Should take 12 * (sampling time) = 1.2us
     return ADCBUF0;             // Return value
-}
+}*/
 
 //Initlize PWM mode
 void PWM_init(void){
@@ -175,7 +175,7 @@ void I2C_init(void){
                                 // 0 = Interrupt request not enabled
 }
 //Initlize ADC mode
-void ADC_init(void){
+/*void ADC_init(void){
     TRISB = 0xFFFF;             // Port B all inputs
     ADPCFG = 0x0000;            // All 16 PORTB pins are analog inputsb
     ADCON1 = 0;                 // Manually clear SAMP to end sampling, start conversion
@@ -184,34 +184,36 @@ void ADC_init(void){
                                 // 7 * 33 = 231 ns(4.329 MHz)
                                 // Our max PWM frequency after is 120 Hz so 7 just my favourite number
     ADCON1bits.ADON = 1;        // Turn ADC ON
-}
+}*/
 
 int main() {
 
-    int feq = 27;
-    int difference, i;
+    //int feq = 27;
+    //int difference, i;
 
     I2C_init();
     PWM_init();
     //ADC_init();
-    RAMBuffer[7] = feq;
+    RAMBuffer[7] = 27;
 
+    //Delta_Phase = (feq * 65536 / FPWM);
+    //difference = 0;
 
     while(1){
 
-        difference = feq - RAMBuffer[7];
-        difference = sqrt(difference * difference);
+        //difference = feq - RAMBuffer[7];
+        //difference = sqrt(difference * difference);
 
-        if(difference < 2){
-            Delta_Phase = (feq * 65536 / FPWM);
-        }
-        else{
-            for(i=0; i<difference; i++){
-                feq += 1;
-                Delta_Phase = (feq * 65536 / FPWM);
-                __delay32(60000);
-            }
-        }
+        //if(difference < 2){
+            Delta_Phase = (RAMBuffer[7] * 65536 / FPWM);
+        //}
+        //else{
+         //   for(i=0; i<difference; i++){
+         //       feq += 1;
+         //       Delta_Phase = (feq * 65536 / FPWM);
+         //       __delay32(60000);
+         //   }
+        //}
 
     };
 

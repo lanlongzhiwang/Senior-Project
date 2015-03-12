@@ -5,22 +5,21 @@
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
 
-#define dspic30f5015_1 0x77                         // Define first dspic30f5015 slave address is 0x77
-#define frequency 0                                 // Define frequency register is 0
-#define PWM1_voltage_h 1                            // Define PWM1 voltage higher 8-bits register is 1
-#define PWM1_voltage_l 2                            // Define PWM1 voltage lowr 8-bits register is 2
-#define PWM1_current_h 3                            // Define PWM1 current higher 8-bits register is 3
-#define PWM1_current_l 4                            // Define PWM1 current lowr 8-bits register is 4
-#define PWM2_voltage_h 5                            // Define PWM2 voltage higher 8-bits register is 5
-#define PWM2_voltage_l 6                            // Define PWM2 voltage lowr 8-bits register is 6
-#define PWM2_current_h 7                            // Define PWM2 current higher 8-bits register is 7
-#define PWM2_current_l 8                            // Define PWM2 current lowr 8-bits register is 8
-#define PWM3_voltage_h 9                            // Define PWM3 voltage higher 8-bits register is 9
-#define PWM3_voltage_l 10                           // Define PWM3 voltage lowr 8-bits register is 10
-#define PWM3_current_h 11                           // Define PWM3 current higher 8-bits register is 11
-#define PWM3_current_l 12                           // Define PWM3 current lowr 8-bits register is 12
-#define DC_voltage_h 13                             // Define PWM2 voltage higher 8-bits register is 13
-#define DC_voltage_l 14                             // Define PWM2 voltage lowr 8-bits register is 14
+#define frequency 0            // Define frequency register is 0
+#define PWM1_voltage_h 1       // Define PWM1 voltage higher 8-bits register is 1
+#define PWM1_voltage_l 2       // Define PWM1 voltage lowr 8-bits register is 2
+#define PWM1_current_h 3       // Define PWM1 current higher 8-bits register is 3
+#define PWM1_current_l 4       // Define PWM1 current lowr 8-bits register is 4
+#define PWM2_voltage_h 5       // Define PWM2 voltage higher 8-bits register is 5
+#define PWM2_voltage_l 6       // Define PWM2 voltage lowr 8-bits register is 6
+#define PWM2_current_h 7       // Define PWM2 current higher 8-bits register is 7
+#define PWM2_current_l 8       // Define PWM2 current lowr 8-bits register is 8
+#define PWM3_voltage_h 9       // Define PWM3 voltage higher 8-bits register is 9
+#define PWM3_voltage_l 10      // Define PWM3 voltage lowr 8-bits register is 10
+#define PWM3_current_h 11      // Define PWM3 current higher 8-bits register is 11
+#define PWM3_current_l 12      // Define PWM3 current lowr 8-bits register is 12
+#define DC_voltage_h 13        // Define PWM2 voltage higher 8-bits register is 13
+#define DC_voltage_l 14        // Define PWM2 voltage lowr 8-bits register is 14
 
 //Read value from ADC0 for accelerator
 double read_accelerator(){

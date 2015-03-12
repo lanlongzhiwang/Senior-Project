@@ -73,8 +73,6 @@ const int sinetable[] = {0, 3212, 6393, 9512, 12539, 15446, 18204, 20787, 23170,
 
 //Initializev PWM mode
 void PWM_init(void){
-   
-    
 
     TRISE = 0x0100;             // PWM pins as outputs, and FLTA as input
     PTPER = (FCY/FPWM -1) >> 1; // Compute Period for desired frequency

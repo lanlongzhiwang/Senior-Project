@@ -14,6 +14,7 @@ _FOSC(CSW_FSCM_OFF & FRC_PLL16);                    // Fail-Safe Clock Monito tu
                                                     // 16x PLL enabled
                                                     // 7.37M*16/4 = 29.84 Mhz
 //_FBORPOR(MCLR_DIS);                                 // Disable the MCLR
+ _FWDT(WDT_OFF);                                    // Disable the watch dog
 
 #define FCY 29840000                                // 29.84 MIPS this is the amount of
                                                     // processes per second Tcy = 33 ns
@@ -22,7 +23,7 @@ _FOSC(CSW_FSCM_OFF & FRC_PLL16);                    // Fail-Safe Clock Monito tu
 #define _120_DEGREES 0x5555                         // 120 degree phase
 #define _240_DEGREES 0xAAAA                         // 240 degree phase
 #define _DES_FREQ (float) 10                        // Target frequency
-#define DEADTIME (unsigned int)(0.0000004 * FCY)    // Dead time between triggers 400ns
+#define DEADTIME (unsigned int)(0.000000200 * FCY)    // Dead time between triggers 400ns
 
 unsigned int Phase = 0;                                   // Initialize Phase variable
 unsigned int Delta_Phase;                                 // Declare Delta Phase

@@ -14,11 +14,11 @@ _FOSC(CSW_FSCM_OFF & FRC_PLL16);                    // Fail-Safe Clock Monito tu
                                                     // 16x PLL enabled
                                                     // 7.37M*16/4 = 29.84 Mhz
 //_FBORPOR(MCLR_DIS);                                 // Disable the MCLR
- _FWDT(WDT_OFF);                                    // Disable the watch dog
+// _FWDT(WDT_OFF);                                    // Disable the watch dog
 
 #define FCY 29840000                                // 29.84 MIPS this is the amount of
                                                     // processes per second Tcy = 33 ns
-#define FPWM 65000                                  // 65 kHz switching frequency
+#define FPWM 10000                                  // 20 kHz switching frequency
 #define _0_DEGREES 0x0000                           // 0 degree phase
 #define _120_DEGREES 0x5555                         // 120 degree phase
 #define _240_DEGREES 0xAAAA                         // 240 degree phase
@@ -30,6 +30,7 @@ unsigned int Delta_Phase;                                 // Declare Delta Phase
 unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3; // Declare 3-phase PWM each offset
 unsigned int Multiplier, Result;                          // Declare some variable use in
                                                           // asm() function
+unsigned Am;
 
 //sinetable with 64 entry (special)
 /*const int sinetable[] ={
@@ -80,11 +81,14 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     Phase += Delta_Phase;             // Accumulate Delta_Phase in Phase variable
     Phase_Offset1 = _0_DEGREES;       // Add proper value to phase offset (0 degree)
     Multiplier = sinetable[(Phase + Phase_Offset1) >> 10];  // Take sinetable info
-
+    //Am = 1491;
+    Am = 1491;
+    
     asm("MOV _Multiplier, W4");       // Load first multiplier
-    asm("MOV _PTPER, W5");            // Load second multiplier
+    //asm("MOV _PTPER, W5");            // Load second multiplier
+    asm("MOV _Am, W5");            // Load second multiplier
     asm("MOV #_Result, W0");          // Load W0 with the address of Result
-    asm("MPY W4*W5, A");              // Perform Fractional multiplication
+    asm("MPY W4*W5, A");
     asm("SAC A, [W0]");               // Store multiplication result in var Result
 
     PDC1 = Result + PTPER;            // The duty cycle of first PWM
@@ -93,7 +97,8 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     Multiplier = sinetable[(Phase + Phase_Offset2) >> 10];  // Take sinetable info
 
     asm("MOV _Multiplier, W4");       // Load first multiplier
-    asm("MOV _PTPER, W5");            // Load second multiplier
+    //asm("MOV _PTPER, W5");            // Load second multiplier
+    asm("MOV _Am, W5");            // Load second multiplier
     asm("MOV #_Result, W0");          // Load W0 with the address of Result
     asm("MPY W4*W5, A");              // Perform Fractional multiplication
     asm("SAC A, [W0]");               // Store multiplication result in var Result
@@ -103,8 +108,10 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     Phase_Offset3 = _240_DEGREES;     // Add proper value to phase offset (240 degree)
     Multiplier = sinetable[(Phase + Phase_Offset3) >> 10];  // Take sinetable inf
 
+    asm("MOV _Am, W6");
     asm("MOV _Multiplier, W4");       // Load first multiplier
-    asm("MOV _PTPER, W5");            // Load second multiplier
+    //asm("MOV _PTPER, W5");            // Load second multiplier
+    asm("MOV _Am, W5");            // Load second multiplier
     asm("MOV #_Result, W0");          // Load W0 with the address of Result
     asm("MPY W4*W5, A");              // Perform Fractional multiplication
     asm("SAC A, [W0]");               // Store multiplication result in var Result
@@ -125,7 +132,7 @@ int main() {
     while(1){
 
         // Calculate delta phase base on frequency
-        Delta_Phase = (27 * 65536 / FPWM);
+        Delta_Phase = (60 * 65536 / FPWM);
 
     };
 

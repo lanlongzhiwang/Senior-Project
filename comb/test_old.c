@@ -31,6 +31,11 @@ unsigned int Phase_Offset1, Phase_Offset2, Phase_Offset3; // Declare 3-phase PWM
 unsigned int Multiplier, Result;                          // Declare some variable use in
                                                           // asm() function
 unsigned Am;
+unsigned char RAMBuffer[256];                             // RAM Buffer
+unsigned char *RAMPtr;                                    // Pointer to RAM memory
+                                                          // locations
+int AddrFlag = 0;                                         // Initialize AddressFlag
+int DataFlag = 0;                                         // Initialize DataFlag
 
 //sinetable with 64 entry (special)
 /*const int sinetable[] ={
@@ -72,6 +77,20 @@ void PWM_init(void){
     return;
 }
 
+void I2C_init(void){
+	I2CCON = 0x8000;	// Enable I2C1 slave module
+	I2CADD = 0x77;          // Initialised 7-bits I2C slave address
+
+	//IFS1 = 0;
+        IFS0bits.SI2CIF = 0;    // I2C Transfer Complete Interrupt Flag Status bit
+                                // 1 = Interrupt request has occurred
+                                // 0 = Interrupt request has not occurred
+	RAMPtr = &RAMBuffer[0]; // Set the RAM pointer and points to beginning of RAMBuffe
+	IEC0bits.SI2CIE = 1;    // I2C Transfer Complete Interrupt Enable bit
+                                // 1 = Interrupt request enabled
+                                // 0 = Interrupt request not enabled
+}
+
 //PWM main loop
 void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
 
@@ -82,7 +101,7 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     Phase_Offset1 = _0_DEGREES;       // Add proper value to phase offset (0 degree)
     Multiplier = sinetable[(Phase + Phase_Offset1) >> 10];  // Take sinetable info
     //Am = 1491;
-    Am = 1491;
+    Am = (RAMBuffer[1] << 8) + RAMBuffer[2];
     
     asm("MOV _Multiplier, W4");       // Load first multiplier
     //asm("MOV _PTPER, W5");            // Load second multiplier
@@ -123,16 +142,61 @@ void __attribute__((interrupt, no_auto_psv)) _PWMInterrupt(void){
     IFS2bits.PWMIF = 0;               // Clear PWM Interrupt Request Flags
 
 }
+
+void __attribute__((interrupt,no_auto_psv)) _SI2CInterrupt(void){
+
+	unsigned char Temp;                                     // Used for dummy read
+
+	if((I2CSTATbits.R_W == 0)&&(I2CSTATbits.D_A == 0))	// Address matched
+		{
+			Temp = I2CRCV;                          // Dummy read
+			AddrFlag = 1;                           // Next byte will be address
+		}
+	else if((I2CSTATbits.R_W == 0)&&(I2CSTATbits.D_A == 1))	// Check for data
+		{
+			if(AddrFlag)                            // If Address Flag
+			{
+				AddrFlag = 0;                   // Clear Address Flag
+				DataFlag = 1;                   // Next byte is data
+				RAMPtr = RAMPtr + I2CRCV;       // Match the Sub-slave address
+			}
+			else if(DataFlag)
+			{
+				*RAMPtr = (unsigned char)I2CRCV;// Store data into RAM
+				DataFlag = 0;                   // Clear Data flag
+				RAMPtr = &RAMBuffer[0];         // Reset the RAM pointer
+			}
+		}
+        else if((I2CSTATbits.R_W == 1)&&(I2CSTATbits.D_A == 0)) // Check for read
+	{
+		Temp = I2CRCV;                                  // Dummy read
+		I2CTRN = *RAMPtr;                               // Read data from RAM & send data
+                                                                // to I2C master device
+		I2CCONbits.SCLREL = 1;                          // Release SCL1 line
+		while(I2CSTATbits.TBF);                         // Wait till all
+		RAMPtr = &RAMBuffer[0];                         // Reset the RAM pointer
+	}
+
+	_SI2CIF = 0;                                            // Clear I2C1 Slave interrupt flag
+}
+
 int main() {
 
+    I2C_init();
     PWM_init();                                             // Initialize PWM mode
 
-    //RAMBuffer[frequency] = 17;                              // Initialize frequency to 17 Hz
+    /*RAMBuffer[0] = 30;                              // Initialize frequency to 17 Hz
+    RAMBuffer[1] = 0b00000101;
+    RAMBuffer[2] = 0b11010011;*/
 
+    RAMBuffer[0] = 0;                              // Initialize frequency to 17 Hz
+    RAMBuffer[1] = 0;
+    RAMBuffer[2] = 0;
+    
     while(1){
 
         // Calculate delta phase base on frequency
-        Delta_Phase = (60 * 65536 / FPWM);
+        Delta_Phase = (RAMBuffer[0] * 65536 / FPWM);
 
     };
 
